@@ -11,7 +11,10 @@ from tqdm import tqdm
 
 load_dotenv()
 
-SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+SCOPES = [
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/cloud-platform'
+]
 DRIVE_FOLDER_NAME = os.getenv("GDRIVE_FOLDER_NAME")
 OUTPUT_DIR = "images"
 

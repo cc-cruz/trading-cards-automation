@@ -32,7 +32,7 @@ def _scrape_ebay_sold_listings(search_query, max_results=5):
     url = f"https://www.ebay.com/sch/i.html?_from=R40&_nkw={encoded_query}&_sacat=0&LH_Sold=1&LH_Complete=1&_sop=13"
     
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -88,6 +88,7 @@ def _calculate_listing_price(sold_prices, markup_percent=18):
 def research_all_prices(cards):
     """
     Scrapes eBay sold listings to find average prices for a list of cards.
+    - Only processes cards with both player name AND set/edition
     - Constructs a search query for each card.
     - Scrapes the last 5 sold listings from the last 90 days.
     - Calculates the average price.
@@ -101,9 +102,30 @@ def research_all_prices(cards):
         print("No cards provided for price research.")
         return []
     
+    # Filter cards to only include those with both player AND set
+    valid_cards = []
+    skipped_cards = []
+    
+    for card in cards:
+        player = card.get('player', '').strip()
+        card_set = card.get('set', '').strip()
+        
+        # Check if we have both player name and set/edition
+        if player and card_set and len(player) > 2 and len(card_set) > 2:
+            # Additional validation - check if player looks like a real name
+            if ' ' in player or player.count(' ') >= 1:  # Real names usually have spaces
+                valid_cards.append(card)
+            else:
+                skipped_cards.append(card)
+        else:
+            skipped_cards.append(card)
+    
+    print(f"Found {len(valid_cards)} cards with both player name and set/edition")
+    print(f"Skipping {len(skipped_cards)} cards with incomplete data")
+    
     priced_cards = []
     
-    for card in tqdm(cards, desc="Researching prices"):
+    for card in tqdm(valid_cards, desc="Researching prices"):
         search_query = _build_search_query(card)
         
         if not search_query or search_query == "sold":
@@ -141,7 +163,19 @@ def research_all_prices(cards):
         # Rate limiting to avoid being blocked
         time.sleep(2)
     
+    # Add skipped cards to the result without pricing data
+    for card in skipped_cards:
+        card_with_price = card.copy()
+        card_with_price.update({
+            'search_query': 'Skipped - insufficient data',
+            'pricing_data': None,
+            'pricing_error': 'Missing player name or set/edition'
+        })
+        priced_cards.append(card_with_price)
+    
     print("Price research complete.")
+    print(f"Processed {len(valid_cards)} cards for pricing")
+    print(f"Skipped {len(skipped_cards)} cards due to incomplete data")
     return priced_cards
 
 if __name__ == '__main__':

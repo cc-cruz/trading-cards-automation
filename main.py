@@ -103,33 +103,65 @@ def main():
     print("=== Trading Card Automation Pipeline ===\n")
     
     # Step 1: Download images from Google Drive (Target: 5 minutes)
+    print("🔄 Step 1: Downloading all images from Google Drive...")
     images = download_from_drive()      
     
     if not images:
         print("No images downloaded. Exiting pipeline.")
         return
     
+    print(f"✅ Downloaded {len(images)} images successfully!")
+    
     # Step 2: Process images with OCR (Target: 15 minutes)
+    print("\n🔄 Step 2: Processing images with Google Vision API...")
     cards = process_all_images(images)  
     
     if not cards:
         print("No cards processed. Exiting pipeline.")
         return
     
+    print(f"✅ Processed {len(cards)} cards with OCR!")
+    
+    # Show progress every 5 cards during processing
+    print("\n📊 Card Processing Results (showing every 5th card):")
+    for i, card in enumerate(cards):
+        if (i + 1) % 5 == 0 or i == len(cards) - 1:
+            print(f"  Card {i+1}/{len(cards)}: {card.get('player', 'Unknown')} - {card.get('set', 'Unknown Set')} ({card.get('year', 'Unknown Year')})")
+    
     # Step 3: Research prices on eBay (Target: 8 minutes)
+    print(f"\n🔄 Step 3: Researching eBay prices for {len(cards)} cards...")
     priced_cards = research_all_prices(cards) 
     
+    # Show pricing progress every 5 cards
+    print("\n💰 Pricing Results (showing every 5th card):")
+    successful_pricing = 0
+    for i, card in enumerate(priced_cards):
+        if card.get('pricing_data'):
+            successful_pricing += 1
+        if (i + 1) % 5 == 0 or i == len(priced_cards) - 1:
+            price_info = "No price found"
+            if card.get('pricing_data'):
+                price_info = f"${card['pricing_data']['average_sold_price']}"
+            print(f"  Card {i+1}/{len(priced_cards)}: {card.get('player', 'Unknown')} - {price_info}")
+    
     # Step 4: Build the final CSV for upload (Target: 2 minutes)
-    export_final_csv(priced_cards)
+    print(f"\n🔄 Step 4: Generating final CSV with 25 rows...")
+    
+    # Limit to 25 cards as requested
+    final_cards = priced_cards[:25]
+    export_final_csv(final_cards)
 
-    print("\n=== Trading card automation pipeline finished successfully! ===")
+    print("\n🎉 Trading card automation pipeline finished successfully!")
     
     # Print summary
-    successful_cards = [c for c in priced_cards if c.get('pricing_data')]
+    successful_cards = [c for c in final_cards if c.get('pricing_data')]
     print(f"\nSUMMARY:")
-    print(f"- Images processed: {len(cards)}")
-    print(f"- Cards with pricing: {len(successful_cards)}")
-    print(f"- Success rate: {len(successful_cards)/len(cards)*100:.1f}%")
+    print(f"- Total images downloaded: {len(images)}")
+    print(f"- Cards processed with OCR: {len(cards)}")
+    print(f"- Cards included in final CSV: {len(final_cards)}")
+    print(f"- Cards with successful pricing: {len(successful_cards)}")
+    print(f"- Pricing success rate: {len(successful_cards)/len(final_cards)*100:.1f}%")
+    print(f"- Final CSV: ebay_listings.csv ({len(final_cards)} rows)")
 
 if __name__ == "__main__":
     main() 

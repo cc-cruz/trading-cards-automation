@@ -26,29 +26,49 @@ def _extract_card_details(text):
     if card_num_match:
         details["card_number"] = card_num_match.group(1)
     
-    # 3. Extract Player and Set (Heuristic-based)
-    lines = [line.strip() for line in text.split('\n')]
-    all_caps_lines = [line for line in lines if line.isupper() and len(line.split()) in [1, 2, 3] and re.search(r'[A-Z]', line)]
+    # 3. Extract Player and Set (Improved heuristic-based)
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
     
-    common_words = {'TOPPS', 'PANINI', 'DONRUSS', 'PRIZM', 'SELECT', 'MOSAIC', 'OPTIC', 'SCORE', 'CHROME', 'ROOKIE CARD', 'RC'}
+    # Look for card manufacturer/set keywords
+    set_keywords = {'TOPPS', 'PANINI', 'DONRUSS', 'PRIZM', 'SELECT', 'MOSAIC', 'OPTIC', 'SCORE', 'CHROME', 'BOWMAN', 'FLEER', 'UPPER DECK', 'BOWMAN CHROME'}
     potential_players = []
     potential_sets = []
-
-    for line in all_caps_lines:
-        is_common = False
-        for word in common_words:
-            if word in line:
-                is_common = True
-                if len(line.split()) <= 2:
-                    potential_sets.append(line)
-                break
-        if not is_common and len(line) > 3:
-            potential_players.append(line)
-
-    if potential_players:
-        details["player"] = potential_players[0].title() 
     
+    for line in lines:
+        line_upper = line.upper()
+        
+        # Check for set/manufacturer
+        for keyword in set_keywords:
+            if keyword in line_upper:
+                # Clean up the line and extract just the relevant part
+                clean_line = line.strip()
+                # Remove common prefixes/suffixes
+                clean_line = re.sub(r'^[@#&]', '', clean_line)
+                clean_line = re.sub(r'Cards?$', '', clean_line, flags=re.IGNORECASE)
+                potential_sets.append(clean_line.strip())
+                break
+        
+        # Look for player names (all caps lines with 2-3 words, likely names)
+        if (line.isupper() and 
+            2 <= len(line.split()) <= 3 and 
+            len(line) > 5 and len(line) < 25 and  # Reasonable name length
+            not any(keyword in line_upper for keyword in set_keywords) and
+            not re.search(r'\d{4}', line) and  # Avoid years
+            not re.search(r'#\d+', line) and   # Avoid card numbers
+            not re.search(r'(RECORD|BRIEFING|RESUME|SKILLS|CLOSE|LEAGUE|PITCHING)', line_upper) and  # Avoid common card text
+            re.match(r'^[A-Z\s\-\.]+$', line)):  # Only letters, spaces, hyphens, dots
+            potential_players.append(line.strip())
+    
+    # Select best player name (prefer longer names with spaces)
+    if potential_players:
+        # Sort by length and prefer names with spaces
+        potential_players.sort(key=lambda x: (len(x.split()), len(x)), reverse=True)
+        details["player"] = potential_players[0].title()
+    
+    # Select best set name
     if potential_sets:
+        # Prefer shorter, cleaner set names
+        potential_sets.sort(key=len)
         details["set"] = potential_sets[0].title()
 
     return details
@@ -59,13 +79,26 @@ def process_all_images(image_paths):
     """
     print("Step 2: Processing images with Google Vision API...")
 
-    if not os.getenv('GOOGLE_APPLICATION_CREDENTIALS') or not os.path.exists(os.getenv('GOOGLE_APPLICATION_CREDENTIALS')):
-        print("Error: GOOGLE_APPLICATION_CREDENTIALS not set or file not found.")
-        print("Please set it in .env to the path of your service account JSON key.")
-        return []
-    
+    # Use OAuth credentials from token.json
     try:
-        client = vision.ImageAnnotatorClient()
+        import json
+        from google.oauth2.credentials import Credentials
+        
+        if not os.path.exists('token.json'):
+            print("Error: token.json not found. Please run authentication first.")
+            return []
+            
+        with open('token.json', 'r') as f:
+            token_data = json.load(f)
+        
+        # Create credentials with Vision API scope
+        SCOPES = [
+            'https://www.googleapis.com/auth/drive.readonly',
+            'https://www.googleapis.com/auth/cloud-platform'
+        ]
+        creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+        
+        client = vision.ImageAnnotatorClient(credentials=creds)
     except Exception as e:
         print(f"Error initializing Google Vision client: {e}")
         return []
