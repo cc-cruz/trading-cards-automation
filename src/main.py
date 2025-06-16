@@ -62,7 +62,7 @@ async def register(
     auth_service = get_auth_service(db)
     return auth_service.create_user(user)
 
-# Card routes
+# Auth dependency
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -70,6 +70,25 @@ async def get_current_user(
     """Dependency to get current authenticated user"""
     auth_service = get_auth_service(db)
     return await auth_service.get_current_user(token)
+
+@app.get("/api/v1/auth/me", response_model=User)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user information"""
+    return current_user
+
+# Card routes
+
+@app.get("/api/v1/cards/recent")
+async def get_recent_cards(
+    current_user: User = Depends(get_current_user),
+    card_service: CardService = Depends(get_card_service),
+    limit: int = 6
+):
+    """Get recently added cards for the current user"""
+    recent_cards = card_service.get_recent_cards(current_user.id, limit)
+    return recent_cards
 
 @app.post("/api/v1/cards", response_model=CardSchema)
 async def create_card(
@@ -120,6 +139,16 @@ async def delete_card(
     if not success:
         raise HTTPException(status_code=404, detail="Card not found")
     return {"status": "success"}
+
+# Collection stats routes
+@app.get("/api/v1/collections/stats")
+async def get_collection_stats(
+    current_user: User = Depends(get_current_user),
+    card_service: CardService = Depends(get_card_service)
+):
+    """Get collection statistics for the current user"""
+    stats = card_service.get_user_collection_stats(current_user.id)
+    return stats
 
 # Price routes
 @app.get("/api/v1/cards/{card_id}/price")

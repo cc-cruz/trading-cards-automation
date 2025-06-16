@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import datetime
+from datetime import datetime
 
 class Token(BaseModel):
     access_token: str
@@ -18,9 +20,9 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: str
-    created_at: str
-    updated_at: str
-    deleted_at: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True 
