@@ -6,19 +6,58 @@ from tqdm import tqdm
 import re
 
 def _build_search_query(card):
-    """Build eBay search query from card data."""
+    """Build eBay search query from card data, prioritizing player names and handling graded cards."""
     query_parts = []
     
+    # Always start with player name (most important)
     if card.get('player'):
-        query_parts.append(card['player'])
-    if card.get('set'):
-        query_parts.append(card['set'])
+        query_parts.append(f'"{card["player"]}"')  # Exact match for player name
+    
+    # Add year if available (helps narrow down to specific card years)
     if card.get('year'):
         query_parts.append(str(card['year']))
-    if card.get('card_number'):
+    
+    # Add set/manufacturer for context
+    if card.get('set'):
+        # Clean up set name and add it
+        set_name = card['set'].replace('Chrome', '').strip()  # Remove redundant words
+        if set_name and len(set_name) > 3:
+            query_parts.append(set_name)
+    elif card.get('manufacturer'):
+        query_parts.append(card['manufacturer'])
+    
+    # Add parallel/rarity information (critical for pricing)
+    if card.get('parallel'):
+        parallel = card['parallel']
+        # Add specific parallel info in quotes for exact matching
+        if any(term in parallel.lower() for term in ['1/1', '/', 'superfractor', 'refractor']):
+            query_parts.append(f'"{parallel}"')
+        else:
+            query_parts.append(parallel)
+    
+    # Add rookie designation
+    if card.get('features') and 'rookie' in card.get('features', '').lower():
+        query_parts.append('rookie')
+    
+    # Add card number if available and specific
+    if card.get('card_number') and len(str(card.get('card_number', ''))) <= 4:
         query_parts.append(f"#{card['card_number']}")
     
-    query_parts.append("sold")
+    # Handle graded cards (CRITICAL for accurate pricing)
+    if card.get('graded'):
+        grading_company = card.get('grading_company', 'PSA')
+        grade = card.get('grade')
+        
+        if grade:
+            # Add PSA grade for exact matching (graded cards have very different values)
+            query_parts.append(f'"{grading_company} {grade}"')
+        else:
+            # Just add grading company if no specific grade
+            query_parts.append(grading_company)
+    
+    # Always add "sold" for completed listings
+    query_parts.append('sold')
+    
     return " ".join(query_parts)
 
 def _scrape_ebay_sold_listings(search_query, max_results=5):
@@ -107,8 +146,15 @@ def research_all_prices(cards):
     skipped_cards = []
     
     for card in cards:
-        player = card.get('player', '').strip()
-        card_set = card.get('set', '').strip()
+        # Handle None values safely
+        player = card.get('player') or ''
+        card_set = card.get('set') or ''
+        
+        # Strip only if not None
+        if player:
+            player = player.strip()
+        if card_set:
+            card_set = card_set.strip()
         
         # Check if we have both player name and set/edition
         if player and card_set and len(player) > 2 and len(card_set) > 2:
