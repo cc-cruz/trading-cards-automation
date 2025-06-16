@@ -17,4 +17,4 @@ class User(Base):
     deleted_at = Column(DateTime(timezone=True))
 
     # Relationships
-    collections = relationship("Collection", back_populates="user") 
+    # collections = relationship("Collection", back_populates="user")  # Temporarily disabled to fix import issue 

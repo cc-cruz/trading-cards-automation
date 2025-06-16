@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from .database import get_db, engine, Base
@@ -27,6 +28,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for serving uploaded images
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 # Auth routes
 @app.post("/api/v1/auth/token", response_model=Token)
@@ -90,6 +94,26 @@ async def get_recent_cards(
     recent_cards = card_service.get_recent_cards(current_user.id, limit)
     return recent_cards
 
+@app.post("/api/v1/cards/upload")
+async def upload_card_image(
+    file: UploadFile = File(...),
+    collection_id: str = Form(...),
+    current_user: User = Depends(get_current_user),
+    card_service: CardService = Depends(get_card_service)
+):
+    """Upload and process a card image with OCR and price research"""
+    try:
+        # Process the uploaded image
+        result = await card_service.process_card_image(file, collection_id, current_user.id)
+        return {
+            "status": "success",
+            "card_data": result["card_data"],
+            "price_data": result["price_data"],
+            "card_id": result["card_id"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/cards", response_model=CardSchema)
 async def create_card(
     card: CardCreate,
@@ -139,6 +163,35 @@ async def delete_card(
     if not success:
         raise HTTPException(status_code=404, detail="Card not found")
     return {"status": "success"}
+
+# Collection routes
+@app.get("/api/v1/collections")
+async def get_collections(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all collections for the current user"""
+    from .models.collection import Collection
+    collections = db.query(Collection).filter(Collection.user_id == current_user.id).all()
+    return [{"id": c.id, "name": c.name, "description": c.description} for c in collections]
+
+@app.post("/api/v1/collections")
+async def create_collection(
+    collection_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new collection"""
+    from .models.collection import Collection
+    collection = Collection(
+        user_id=current_user.id,
+        name=collection_data.get("name", "My Collection"),
+        description=collection_data.get("description", "")
+    )
+    db.add(collection)
+    db.commit()
+    db.refresh(collection)
+    return {"id": collection.id, "name": collection.name, "description": collection.description}
 
 # Collection stats routes
 @app.get("/api/v1/collections/stats")

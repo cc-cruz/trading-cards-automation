@@ -26,8 +26,8 @@ class Card(Base):
     deleted_at = Column(DateTime(timezone=True))
 
     # Relationships
-    images = relationship("CardImage", back_populates="card")
-    collection = relationship("Collection", back_populates="cards")
+    # images = relationship("CardImage", back_populates="card")  # Temporarily disabled to fix import issue
+    # collection = relationship("Collection", back_populates="cards")  # Temporarily disabled to fix import issue
 
 class CardImage(Base):
     __tablename__ = "card_images"
@@ -41,4 +41,4 @@ class CardImage(Base):
     deleted_at = Column(DateTime(timezone=True))
 
     # Relationships
-    card = relationship("Card", back_populates="images") 
+    # card = relationship("Card", back_populates="images")  # Temporarily disabled to fix import issue 

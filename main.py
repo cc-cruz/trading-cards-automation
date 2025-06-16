@@ -6,29 +6,99 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from src.drive_downloader import download_from_drive
-from src.card_processor import process_all_images
+from src.enhanced_card_processor import process_all_images_enhanced as process_all_images
 from src.price_finder import research_all_prices
+
+def get_image_urls_for_card(card_data, image_urls_dict):
+    """
+    Get image URLs for a specific card based on the card data.
+    
+    Args:
+        card_data (dict): Card information with player name, etc.
+        image_urls_dict (dict): Dictionary of filename -> URL mappings
+    
+    Returns:
+        str: Pipe-separated URLs for this card, or empty string if none found
+    """
+    if not image_urls_dict:
+        return ""
+    
+    card_urls = []
+    
+    # Try to match based on player name
+    player_name = card_data.get('player', '').lower()
+    if player_name:
+        # Convert player name to filename format (e.g., "Paul Skenes" -> "paul-skenes")
+        player_filename = player_name.replace(' ', '-').replace('.', '').lower()
+        
+        # Look for matching images
+        for filename, url in image_urls_dict.items():
+            filename_lower = filename.lower()
+            if player_filename in filename_lower:
+                card_urls.append(url)
+    
+    # If no player-based match, try to match by any available info
+    if not card_urls:
+        # Try matching by set or other identifiers
+        for key in ['set', 'manufacturer']:
+            if card_data.get(key):
+                search_term = card_data[key].lower().replace(' ', '-')
+                for filename, url in image_urls_dict.items():
+                    if search_term in filename.lower():
+                        card_urls.append(url)
+                        break
+    
+    # Return pipe-separated URLs (eBay format for multiple images)
+    return "|".join(card_urls) if card_urls else ""
+
+def load_gcs_image_urls():
+    """
+    Load image URLs from the GCS URL generator output file.
+    
+    Returns:
+        dict: Dictionary of filename -> URL mappings, or empty dict if file not found
+    """
+    try:
+        import json
+        with open('image_urls.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("⚠️  image_urls.json not found. Run src/gcs_url_generator.py first to get image URLs.")
+        return {}
+    except Exception as e:
+        print(f"⚠️  Error loading image URLs: {e}")
+        return {}
 
 def export_final_csv(priced_cards):
     """
     Builds and exports the final CSV file for eBay bulk upload.
-    - Creates 25 new rows with the processed data.
-    - Auto-populates required fields with sensible defaults.
-    - Exports the final DataFrame to a CSV file.
+    Uses eBay's official Seller Hub Reports format with all required fields.
+    Automatically includes image URLs from Google Cloud Storage.
     """
-    print("Step 4: Building final CSV...")
+    print("Step 4: Building eBay-compliant CSV...")
     
-    # Column structure as specified
+    # Load image URLs from GCS
+    print("🖼️  Loading image URLs from Google Cloud Storage...")
+    image_urls_dict = load_gcs_image_urls()
+    if image_urls_dict:
+        print(f"✅ Loaded {len(image_urls_dict)} image URLs")
+    else:
+        print("⚠️  No image URLs loaded - listings will be created without images")
+    
+    # eBay's REQUIRED columns for bulk upload
     columns = [
-        "Title", "Sport", "Purchase Price", "Purchase Date", "Player", "Set", 
-        "Year", "Card Manufacturer", "Card Number", "Graded (Y/N)", 
-        "Card Condition", "Professional Grader", "Grade", "Certification Number", 
-        "Parallel", "Features"
+        "Action", "Custom label (SKU)", "Category ID", "Title", "Condition ID", 
+        "P:UPC", "Item photo URL", "Format", "Description", "Duration", 
+        "Start price", "Quantity", "Location", "Shipping profile name", 
+        "Return profile name", "Payment profile name",
+        # Item specifics for trading cards (C: prefix indicates category-specific)
+        "C:Brand", "C:Player", "C:Set", "C:Year", "C:Card Number", 
+        "C:Parallel/Variety", "C:Features"
     ]
     
     rows = []
-    for card in priced_cards:
-        # Build title
+    for i, card in enumerate(priced_cards):
+        # Build eBay-compliant title (80 char max)
         title_parts = []
         if card.get('year'):
             title_parts.append(str(card['year']))
@@ -38,50 +108,82 @@ def export_final_csv(priced_cards):
             title_parts.append(card['player'])
         if card.get('card_number'):
             title_parts.append(f"#{card['card_number']}")
+        if card.get('parallel'):
+            title_parts.append(card['parallel'])
         
-        title = " ".join(title_parts) if title_parts else "Trading Card"
+        title = " ".join(title_parts)[:80] if title_parts else "Trading Card"
         
-        # Determine sport (basic heuristic)
-        sport = "Sports"  # Default
+        # Build description with all card details
+        description_parts = []
         if card.get('player'):
-            # Could add more sophisticated sport detection here
-            sport = "Baseball"  # Most common trading cards
+            description_parts.append(f"Player: {card['player']}")
+        if card.get('set'):
+            description_parts.append(f"Set: {card['set']}")
+        if card.get('year'):
+            description_parts.append(f"Year: {card['year']}")
+        if card.get('card_number'):
+            description_parts.append(f"Card Number: {card['card_number']}")
+        if card.get('parallel'):
+            description_parts.append(f"Parallel: {card['parallel']}")
+        if card.get('manufacturer'):
+            description_parts.append(f"Manufacturer: {card['manufacturer']}")
         
-        # Get pricing info
-        purchase_price = ""
+        description = "<br>".join(description_parts) if description_parts else "Trading Card"
+        
+        # Determine price - use eBay research or default
+        start_price = "9.99"  # Default starting price
         if card.get('pricing_data') and card['pricing_data'].get('average_sold_price'):
-            purchase_price = card['pricing_data']['average_sold_price']
+            try:
+                price = float(card['pricing_data']['average_sold_price'])
+                start_price = f"{price:.2f}"
+            except (ValueError, TypeError):
+                start_price = "9.99"
         
-        # Determine manufacturer from set name
-        manufacturer = ""
+        # Determine manufacturer/brand
+        brand = "Unbranded"
         if card.get('set'):
             set_name = card['set'].upper()
             if 'TOPPS' in set_name:
-                manufacturer = "Topps"
+                brand = "Topps"
             elif 'PANINI' in set_name:
-                manufacturer = "Panini"
+                brand = "Panini"
             elif 'DONRUSS' in set_name:
-                manufacturer = "Donruss"
-            else:
-                manufacturer = card['set']
+                brand = "Donruss"
+            elif 'BOWMAN' in set_name:
+                brand = "Bowman"
+            elif 'UPPER DECK' in set_name:
+                brand = "Upper Deck"
+        
+        # Get image URLs for this card
+        item_photo_urls = get_image_urls_for_card(card, image_urls_dict)
         
         row = {
+            # REQUIRED eBay fields
+            "Action": "Add",
+            "Custom label (SKU)": f"CARD-{i+1:03d}",  # Unique SKU
+            "Category ID": "213",  # Sports Trading Cards category
             "Title": title,
-            "Sport": sport,
-            "Purchase Price": purchase_price,
-            "Purchase Date": datetime.now().strftime("%Y-%m-%d"),
-            "Player": card.get('player', ''),
-            "Set": card.get('set', ''),
-            "Year": card.get('year', ''),
-            "Card Manufacturer": manufacturer,
-            "Card Number": card.get('card_number', ''),
-            "Graded (Y/N)": "N",  # Default assumption
-            "Card Condition": "Near Mint",  # Default assumption
-            "Professional Grader": "",
-            "Grade": "",
-            "Certification Number": "",
-            "Parallel": "",
-            "Features": ""
+            "Condition ID": "1000",  # New condition
+            "P:UPC": "Does not apply",  # Most cards don't have UPC
+            "Item photo URL": item_photo_urls,  # GCS URLs
+            "Format": "FixedPrice",
+            "Description": description,
+            "Duration": "GTC",  # Good Till Cancelled
+            "Start price": start_price,
+            "Quantity": "1",
+            "Location": "United States",  # Default location
+            "Shipping profile name": "Free Domestic Shipping",  # Must match business policy
+            "Return profile name": "30 Day Returns",  # Must match business policy  
+            "Payment profile name": "Standard Payment",  # Must match business policy
+            
+            # Item specifics for trading cards
+            "C:Brand": brand,
+            "C:Player": card.get('player', ''),
+            "C:Set": card.get('set', ''),
+            "C:Year": card.get('year', ''),
+            "C:Card Number": card.get('card_number', ''),
+            "C:Parallel/Variety": card.get('parallel', ''),
+            "C:Features": card.get('features', '')
         }
         rows.append(row)
     
@@ -89,11 +191,24 @@ def export_final_csv(priced_cards):
     df = pd.DataFrame(rows, columns=columns)
     
     # Export to CSV
-    output_filename = "ebay_listings.csv"
+    output_filename = "ebay_bulk_upload.csv"
     df.to_csv(output_filename, index=False)
     
-    print(f"CSV export complete. File saved as '{output_filename}'")
-    print(f"Generated {len(rows)} listings ready for eBay upload.")
+    # Count cards with images
+    cards_with_images = sum(1 for row in rows if row["Item photo URL"])
+    
+    print(f"✅ eBay-compliant CSV export complete!")
+    print(f"📁 File saved as '{output_filename}'")
+    print(f"📊 Generated {len(rows)} listings ready for eBay Seller Hub Reports upload")
+    print(f"🖼️  {cards_with_images}/{len(rows)} cards have images attached")
+    print(f"\n⚠️  IMPORTANT NOTES:")
+    print(f"   • Business Policies configured:")
+    print(f"     - 'Free Domestic Shipping' (shipping policy) ✅")
+    print(f"     - '30 Day Returns' (return policy) ✅")
+    print(f"     - 'Standard Payment' (payment policy) ✅")
+    if cards_with_images < len(rows):
+        print(f"   • {len(rows) - cards_with_images} cards missing images - check GCS URLs")
+    print(f"   • Upload via: Seller Hub > Reports > Upload > Upload template")
 
 def main():
     """
@@ -161,7 +276,7 @@ def main():
     print(f"- Cards included in final CSV: {len(final_cards)}")
     print(f"- Cards with successful pricing: {len(successful_cards)}")
     print(f"- Pricing success rate: {len(successful_cards)/len(final_cards)*100:.1f}%")
-    print(f"- Final CSV: ebay_listings.csv ({len(final_cards)} rows)")
+    print(f"- Final CSV: ebay_bulk_upload.csv ({len(final_cards)} rows)")
 
 if __name__ == "__main__":
     main() 

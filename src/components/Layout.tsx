@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
@@ -8,10 +8,17 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
-  const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('token');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    setIsAuthenticated(!!localStorage.getItem('token'));
+  }, [router.pathname]); // Re-check auth when route changes
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', auth: true },
+    { name: 'Upload Cards', href: '/dashboard/upload', auth: true },
     { name: 'Collection', href: '/dashboard/collection', auth: true },
     { name: 'Scan', href: '/dashboard/scan', auth: true },
     { name: 'Bulk Scan', href: '/dashboard/bulk-scan', auth: true },
@@ -28,7 +35,7 @@ export default function Layout({ children }: LayoutProps) {
                   CardDealer
                 </Link>
               </div>
-              {isAuthenticated && (
+              {isClient && isAuthenticated && (
                 <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                   {navigation.map((item) => (
                     <Link
@@ -47,31 +54,36 @@ export default function Layout({ children }: LayoutProps) {
               )}
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
-              {isAuthenticated ? (
-                <button
-                  onClick={() => {
-                    localStorage.removeItem('token');
-                    router.push('/auth/login');
-                  }}
-                  className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Sign out
-                </button>
-              ) : (
-                <div className="flex space-x-4">
-                  <Link
-                    href="/auth/login"
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/auth/register"
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    Sign up
-                  </Link>
-                </div>
+              {isClient && (
+                <>
+                  {isAuthenticated ? (
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('token');
+                        setIsAuthenticated(false);
+                        router.push('/auth/login');
+                      }}
+                      className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      Sign out
+                    </button>
+                  ) : (
+                    <div className="flex space-x-4">
+                      <Link
+                        href="/auth/login"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                      >
+                        Sign in
+                      </Link>
+                      <Link
+                        href="/auth/register"
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        Sign up
+                      </Link>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

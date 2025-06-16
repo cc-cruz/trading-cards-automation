@@ -48,6 +48,17 @@ class AuthService:
         self.db.add(db_user)
         self.db.commit()
         self.db.refresh(db_user)
+        
+        # Create default collection for new user
+        from ..models.collection import Collection
+        default_collection = Collection(
+            name="My Cards",
+            description="Default collection for your trading cards",
+            user_id=db_user.id
+        )
+        self.db.add(default_collection)
+        self.db.commit()
+        
         return db_user
 
     def authenticate_user(self, email: str, password: str) -> Optional[User]:

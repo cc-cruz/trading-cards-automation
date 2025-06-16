@@ -9,11 +9,12 @@ class Collection(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
+    description = Column(String, default="")
     user_id = Column(String, ForeignKey("users.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     deleted_at = Column(DateTime(timezone=True))
 
     # Relationships
-    cards = relationship("Card", back_populates="collection")
-    user = relationship("User", back_populates="collections") 
+    # cards = relationship("Card", back_populates="collection")  # Temporarily disabled to fix import issue
+    # user = relationship("User", back_populates="collections")  # Temporarily disabled to fix import issue 
