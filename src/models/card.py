@@ -25,9 +25,9 @@ class Card(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     deleted_at = Column(DateTime(timezone=True))
 
-    # Relationships
-    # images = relationship("CardImage", back_populates="card")  # Temporarily disabled to fix import issue
-    # collection = relationship("Collection", back_populates="cards")  # Temporarily disabled to fix import issue
+    # Relationships - using string references to avoid circular imports
+    images = relationship("CardImage", back_populates="card", lazy="dynamic")
+    collection = relationship("Collection", back_populates="cards")
 
 class CardImage(Base):
     __tablename__ = "card_images"
@@ -40,5 +40,5 @@ class CardImage(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     deleted_at = Column(DateTime(timezone=True))
 
-    # Relationships
-    # card = relationship("Card", back_populates="images")  # Temporarily disabled to fix import issue 
+    # Relationships - using string references to avoid circular imports
+    card = relationship("Card", back_populates="images") 

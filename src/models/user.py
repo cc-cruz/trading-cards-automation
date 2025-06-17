@@ -16,5 +16,5 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     deleted_at = Column(DateTime(timezone=True))
 
-    # Relationships
-    # collections = relationship("Collection", back_populates="user")  # Temporarily disabled to fix import issue 
+    # Relationships - using string references to avoid circular imports
+    collections = relationship("Collection", back_populates="user", lazy="dynamic") 

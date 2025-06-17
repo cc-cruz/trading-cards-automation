@@ -8,6 +8,8 @@ from .database import get_db, engine, Base
 from .services.auth_service import AuthService, get_auth_service, oauth2_scheme
 from .services.card_service import CardService, get_card_service
 from .services.price_service import PriceService, get_price_service
+from .services.analytics_service import AnalyticsService, get_analytics_service
+from .services.card_database_service import HybridPricingService, get_hybrid_pricing_service, CardDatabaseService, get_card_database_service
 from .schemas.auth import Token, UserCreate, User
 from .schemas.card import CardCreate, CardUpdate, Card as CardSchema
 
@@ -203,6 +205,37 @@ async def get_collection_stats(
     stats = card_service.get_user_collection_stats(current_user.id)
     return stats
 
+# Analytics routes
+@app.get("/api/v1/analytics")
+async def get_analytics(
+    current_user: User = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(get_analytics_service)
+):
+    """Get comprehensive analytics for the current user's collection"""
+    analytics = analytics_service.get_user_analytics(current_user.id)
+    return analytics
+
+@app.get("/api/v1/analytics/collection/{collection_id}")
+async def get_collection_analytics(
+    collection_id: str,
+    current_user: User = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(get_analytics_service)
+):
+    """Get detailed analytics for a specific collection"""
+    analytics = analytics_service.get_collection_analytics(collection_id, current_user.id)
+    if not analytics:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    return analytics
+
+@app.get("/api/v1/analytics/market")
+async def get_market_insights(
+    current_user: User = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(get_analytics_service)
+):
+    """Get market insights and trends"""
+    insights = analytics_service.get_market_insights(current_user.id)
+    return insights
+
 # Price routes
 @app.get("/api/v1/cards/{card_id}/price")
 async def get_card_price(
@@ -220,6 +253,70 @@ async def get_card_price(
         raise HTTPException(status_code=404, detail="Price data not found")
     
     return price_data
+
+# 🚀 NEW: Hybrid Pricing Routes
+@app.post("/api/v1/pricing/hybrid")
+async def get_hybrid_price(
+    card_data: dict,
+    current_user: User = Depends(get_current_user),
+    hybrid_service: HybridPricingService = Depends(get_hybrid_pricing_service)
+):
+    """Get price using hybrid approach (local DB + eBay fallback)"""
+    try:
+        result = await hybrid_service.get_card_price(card_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/pricing/database/search")
+async def search_card_database(
+    query: str,
+    sport: str = None,
+    year: int = None,
+    current_user: User = Depends(get_current_user),
+    card_db_service: CardDatabaseService = Depends(get_card_database_service)
+):
+    """Search the local card database"""
+    results = card_db_service.search_cards(query, sport, year)
+    return [
+        {
+            "id": card.id,
+            "player": card.player_name,
+            "set": card.set_name,
+            "year": card.year,
+            "manufacturer": card.manufacturer,
+            "card_number": card.card_number,
+            "parallel": card.parallel,
+            "raw_price": card.avg_raw_price,
+            "psa9_price": card.avg_psa9_price,
+            "psa10_price": card.avg_psa10_price,
+            "last_updated": card.last_updated,
+            "sport": card.sport
+        }
+        for card in results
+    ]
+
+@app.get("/api/v1/pricing/database/popular/{sport}")
+async def get_popular_cards(
+    sport: str,
+    year: int,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    card_db_service: CardDatabaseService = Depends(get_card_database_service)
+):
+    """Get popular cards for a sport and year"""
+    results = card_db_service.get_popular_cards(sport.upper(), year, limit)
+    return [
+        {
+            "player": card.player_name,
+            "set": card.set_name,
+            "card_number": card.card_number,
+            "parallel": card.parallel,
+            "psa10_price": card.avg_psa10_price,
+            "rookie": card.rookie
+        }
+        for card in results
+    ]
 
 if __name__ == "__main__":
     import uvicorn

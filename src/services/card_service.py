@@ -7,6 +7,7 @@ from ..models.card import Card, CardImage
 from ..models.collection import Collection
 from ..schemas.card import CardCreate, CardUpdate
 from .price_service import PriceService
+from .card_database_service import HybridPricingService, get_hybrid_pricing_service
 from ..utils.card_processor import process_all_images
 from ..utils.gcs_url_generator import get_gcs_image_urls
 from ..utils.price_finder import research_all_prices
@@ -15,12 +16,12 @@ class CardService:
     def __init__(self, db: Session):
         self.db = db
         self.price_service = PriceService(db)
+        self.hybrid_pricing_service = HybridPricingService(db)
 
     async def process_card_image(self, file: UploadFile, collection_id: str, user_id: str) -> dict:
         import os
         import tempfile
         from ..utils.enhanced_card_processor import process_all_images_enhanced
-        from ..utils.price_finder import research_all_prices
         
         # Create temporary directory if it doesn't exist
         os.makedirs("temp", exist_ok=True)
@@ -34,42 +35,56 @@ class CardService:
 
             # For now, create a mock card data structure for testing
             # TODO: Replace with actual OCR processing when Google Cloud credentials are set up
-            try:
-                # Process image using enhanced OCR
-                processed_cards = process_all_images_enhanced([temp_path])
-                if processed_cards and len(processed_cards) > 0:
-                    card_data = processed_cards[0]
-                else:
-                    # Fallback to mock data if OCR fails
-                    card_data = self._create_mock_card_data(file.filename)
-            except Exception as ocr_error:
-                print(f"OCR processing failed: {ocr_error}")
-                # Create mock card data for testing
-                card_data = self._create_mock_card_data(file.filename)
             
-            # Get price data using existing price research
-            # TODO: Enable price research when ready for production
+            # Process image using enhanced OCR
+            processed_cards = process_all_images_enhanced([temp_path])
+            if processed_cards and len(processed_cards) > 0:
+                card_data = processed_cards[0]
+            else:
+                # If OCR returns no results, create basic card structure
+                card_data = {
+                    "player": "Unknown Player",
+                    "set": "Unknown Set",
+                    "year": "Unknown",
+                    "card_number": "",
+                    "parallel": "",
+                    "manufacturer": "Unknown",
+                    "features": "",
+                    "graded": False,
+                    "grade": "",
+                    "grading_company": "",
+                    "cert_number": "",
+                    "filename": file.filename
+                }
+            
+            # 🚀 NEW: Use hybrid pricing (local DB + eBay fallback)
+            print(f"🔍 Getting price for: {card_data.get('player')} {card_data.get('set')} {card_data.get('year')}")
+            
             try:
-                cards_with_pricing = research_all_prices([card_data])
-                price_data = None
-                if cards_with_pricing and len(cards_with_pricing) > 0:
-                    pricing_info = cards_with_pricing[0].get('pricing_data')
-                    if pricing_info:
-                        price_data = {
-                            "estimated_value": pricing_info.get('average_sold_price', 0),
-                            "listing_price": pricing_info.get('listing_price', 0),
-                            "sold_prices": pricing_info.get('sold_prices', []),
-                            "sample_size": pricing_info.get('sample_size', 0),
-                            "search_query": cards_with_pricing[0].get('search_query', '')
-                        }
-            except Exception as price_error:
-                print(f"Price research failed: {price_error}")
-                # Create mock price data for testing
+                hybrid_pricing_result = await self.hybrid_pricing_service.get_card_price(card_data)
+                
                 price_data = {
-                    "estimated_value": 10.0,
-                    "listing_price": 12.0,
-                    "sold_prices": [8.0, 10.0, 12.0],
-                    "sample_size": 3,
+                    "estimated_value": hybrid_pricing_result.get('estimated_value', 0.0),
+                    "listing_price": hybrid_pricing_result.get('estimated_value', 0.0) * 1.15,  # 15% markup
+                    "confidence": hybrid_pricing_result.get('confidence', 'unknown'),
+                    "source": hybrid_pricing_result.get('source', 'unknown'),
+                    "method": hybrid_pricing_result.get('method', 'unknown'),
+                    "sample_size": hybrid_pricing_result.get('sample_size', 0),
+                    "search_query": f"{card_data.get('player', 'Unknown')} {card_data.get('set', 'Unknown')}"
+                }
+                
+                print(f"✅ Price found via {hybrid_pricing_result.get('source')}: ${hybrid_pricing_result.get('estimated_value', 0)}")
+                
+            except Exception as pricing_error:
+                print(f"❌ Hybrid pricing failed: {pricing_error}")
+                # Ultimate fallback
+                price_data = {
+                    "estimated_value": 1.0,
+                    "listing_price": 1.15,
+                    "confidence": "low",
+                    "source": "fallback",
+                    "method": "default",
+                    "sample_size": 0,
                     "search_query": f"{card_data.get('player', 'Unknown')} {card_data.get('set', 'Unknown')}"
                 }
 
@@ -188,42 +203,50 @@ class CardService:
     def get_user_collection_stats(self, user_id: str) -> dict:
         """Get collection statistics for a user"""
         from sqlalchemy import func
+        from ..models.user import User
         
-        # Get all collections for this user
-        collections = self.db.query(Collection).filter(Collection.user_id == user_id).all()
-        collection_ids = [c.id for c in collections]
-        
-        if not collection_ids:
+        # Get user with collections using relationship
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
             return {
                 "total_cards": 0,
                 "total_value": 0,
                 "recent_additions": 0
             }
         
-        # Total cards count
-        total_cards = self.db.query(Card).filter(Card.collection_id.in_(collection_ids)).count()
+        # Use relationship to get collections
+        collections = user.collections.all()
         
-        # Calculate total value (sum of card prices)
-        cards_with_prices = self.db.query(Card).filter(
-            Card.collection_id.in_(collection_ids),
-            Card.price_data.isnot(None)
-        ).all()
+        if not collections:
+            return {
+                "total_cards": 0,
+                "total_value": 0,
+                "recent_additions": 0
+            }
         
+        # Calculate stats using relationships
+        total_cards = 0
         total_value = 0
-        for card in cards_with_prices:
-            if card.price_data and isinstance(card.price_data, dict):
-                # Extract price from price_data structure
-                price = card.price_data.get('estimated_value', 0)
-                if isinstance(price, (int, float)):
-                    total_value += price
+        
+        for collection in collections:
+            collection_cards = collection.cards.all()
+            total_cards += len(collection_cards)
+            
+            # Calculate value for cards in this collection
+            for card in collection_cards:
+                if card.price_data and isinstance(card.price_data, dict):
+                    price = card.price_data.get('estimated_value', 0)
+                    if isinstance(price, (int, float)):
+                        total_value += price
         
         # Recent additions (last 30 days)
         from datetime import datetime, timedelta
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        recent_additions = self.db.query(Card).filter(
-            Card.collection_id.in_(collection_ids),
-            Card.created_at >= thirty_days_ago
-        ).count()
+        
+        recent_additions = 0
+        for collection in collections:
+            recent_count = collection.cards.filter(Card.created_at >= thirty_days_ago).count()
+            recent_additions += recent_count
         
         return {
             "total_cards": total_cards,
@@ -234,23 +257,27 @@ class CardService:
     def get_recent_cards(self, user_id: str, limit: int = 6) -> List[dict]:
         """Get recently added cards for a user"""
         from sqlalchemy import desc
+        from ..models.user import User
         
-        # Get all collections for this user
-        collections = self.db.query(Collection).filter(Collection.user_id == user_id).all()
-        collection_ids = [c.id for c in collections]
-        
-        if not collection_ids:
+        # Get user with collections using relationship
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
             return []
         
-        # Get recent cards with their images
-        recent_cards = self.db.query(Card).filter(
-            Card.collection_id.in_(collection_ids)
-        ).order_by(desc(Card.created_at)).limit(limit).all()
+        # Get all cards from user's collections using relationships
+        all_cards = []
+        for collection in user.collections:
+            collection_cards = collection.cards.order_by(desc(Card.created_at)).all()
+            all_cards.extend(collection_cards)
+        
+        # Sort all cards by creation date and limit
+        all_cards.sort(key=lambda x: x.created_at, reverse=True)
+        recent_cards = all_cards[:limit]
         
         result = []
         for card in recent_cards:
-            # Get the first image for this card
-            card_image = self.db.query(CardImage).filter(CardImage.card_id == card.id).first()
+            # Use relationship to get first image
+            first_image = card.images.first()
             
             # Extract price from price_data
             price = 0
@@ -263,7 +290,7 @@ class CardService:
                 "set": card.set_name or "Unknown Set",
                 "condition": f"Grade {card.grade}" if card.grade else card.parallel or "Raw",
                 "price": price,
-                "image_url": card_image.image_url if card_image else "/images/card-placeholder.jpg"
+                "image_url": first_image.image_url if first_image else "/images/card-placeholder.jpg"
             })
         
         return result
