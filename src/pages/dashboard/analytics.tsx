@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
+import dynamic from 'next/dynamic';
 
 interface AnalyticsData {
   total_cards: number;
@@ -21,7 +22,7 @@ interface CollectionStats {
 
 interface ValueTrend {
   date: string;
-  value: number;
+  total_value: number;
 }
 
 interface TopCard {
@@ -31,6 +32,20 @@ interface TopCard {
   condition: string;
   value: number;
   image_url: string;
+}
+
+// @ts-ignore - using require for runtime import to avoid SSR issues
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { Chart, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler, TimeScale } = require('chart.js');
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore – react-chartjs-2 types installed at runtime
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Line: any = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), { ssr: false });
+
+// Register chart components if in browser
+if (typeof window !== 'undefined' && Chart) {
+  Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler, TimeScale);
 }
 
 export default function Analytics() {
@@ -47,7 +62,7 @@ export default function Analytics() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('/api/analytics', {
+      const response = await fetch('/api/v1/analytics', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -203,18 +218,58 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Value Trends Chart Placeholder */}
+        {/* Value Trends Line Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Collection Value Trends</h3>
-          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <p className="text-gray-500">Value trends chart coming soon</p>
-              <p className="text-sm text-gray-400 mt-1">Track your collection's value over time</p>
-            </div>
-          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Collection Value Trends (Last 90 Days)</h3>
+          {analytics.value_trends && analytics.value_trends.length > 1 ? (
+            <Line
+              data={{
+                labels: analytics.value_trends.map((v) => v.date),
+                datasets: [
+                  {
+                    label: 'Total Value ($)',
+                    data: analytics.value_trends.map((v) => v.total_value),
+                    fill: true,
+                    backgroundColor: 'rgba(59,130,246,0.15)',
+                    borderColor: 'rgba(59,130,246,1)',
+                    tension: 0.3,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    callbacks: {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      label: (ctx: any) => `$${ctx.parsed.y.toFixed(2)}`,
+                    },
+                  },
+                },
+                scales: {
+                  x: {
+                    display: true,
+                    title: {
+                      display: false,
+                    },
+                  },
+                  y: {
+                    display: true,
+                    title: {
+                      display: false,
+                    },
+                  },
+                },
+                maintainAspectRatio: false,
+              }}
+              height={320}
+            />
+          ) : (
+            <p className="text-gray-500 text-center">No price history yet.</p>
+          )}
         </div>
       </div>
     </Layout>
