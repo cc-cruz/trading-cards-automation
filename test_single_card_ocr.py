@@ -2,7 +2,7 @@
 
 import os
 import sys
-from src.enhanced_card_processor import _extract_player_from_filename, _extract_card_details_enhanced
+from src.utils.enhanced_card_processor import _extract_player_from_filename, _extract_card_details_enhanced
 import io
 from google.cloud import vision
 import json
@@ -20,26 +20,42 @@ def test_single_card_ocr(image_path):
     print(f"🏷️  Player from filename: {player_name}")
     
     # 2. Initialize Vision API client
-    try:
-        if not os.path.exists('token.json'):
-            print("❌ token.json not found. Please run authentication first.")
-            return
-            
-        with open('token.json', 'r') as f:
-            token_data = json.load(f)
-        
-        SCOPES = [
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/cloud-platform'
-        ]
-        creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+    creds = None
+
+    SCOPES = [
+        'https://www.googleapis.com/auth/drive.readonly',
+        'https://www.googleapis.com/auth/cloud-platform'
+    ]
+
+    # 1️⃣ OAuth token.json
+    if os.path.exists('token.json'):
+        try:
+            with open('token.json', 'r') as f:
+                token_data = json.load(f)
+            creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+        except Exception:
+            creds = None
+
+    # 2️⃣ Service-account key
+    if not creds and os.path.exists('credentials.json'):
+        try:
+            from google.oauth2 import service_account
+            with open('credentials.json', 'r') as f:
+                secret_data = json.load(f)
+            if secret_data.get('type') == 'service_account':
+                creds = service_account.Credentials.from_service_account_file(
+                    'credentials.json', scopes=SCOPES
+                )
+        except Exception:
+            creds = None
+
+    # 3️⃣ Default creds
+    if creds:
         client = vision.ImageAnnotatorClient(credentials=creds)
-        
-        print("✅ Vision API client initialized")
-        
-    except Exception as e:
-        print(f"❌ Error initializing Vision API: {e}")
-        return
+    else:
+        client = vision.ImageAnnotatorClient()
+    
+    print("✅ Vision API client initialized")
     
     # 3. Get OCR text
     try:
@@ -90,7 +106,7 @@ def test_single_card_ocr(image_path):
     print(f"\n📊 Extraction Confidence: {confidence:.2f}")
     
     # 6. Preview eBay search query
-    from src.price_finder import _build_search_query
+    from src.utils.price_finder import _build_search_query
     search_query = _build_search_query(card_details)
     print(f"🔍 eBay Search Query: {search_query}")
     
