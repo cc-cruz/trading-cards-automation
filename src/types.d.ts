@@ -1,34 +1,3 @@
-declare module 'react-hot-toast' {
-  import { ReactNode } from 'react';
-
-  export interface ToasterProps {
-    position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
-    reverseOrder?: boolean;
-    toastOptions?: {
-      duration?: number;
-      style?: React.CSSProperties;
-      className?: string;
-    };
-  }
-
-  export function Toaster(props?: ToasterProps): JSX.Element;
-  export function toast(message: string | ReactNode, options?: any): string;
-  export function toast.success(message: string | ReactNode, options?: any): string;
-  export function toast.error(message: string | ReactNode, options?: any): string;
-  export function toast.loading(message: string | ReactNode, options?: any): string;
-  export function toast.dismiss(toastId?: string): void;
-  export function toast.remove(toastId?: string): void;
-  export function toast.promise<T>(
-    promise: Promise<T>,
-    messages: {
-      loading: string | ReactNode;
-      success: string | ReactNode;
-      error: string | ReactNode;
-    },
-    options?: any
-  ): Promise<T>;
-}
-
 declare module 'next/app' {
   import { NextComponentType, NextPageContext } from 'next';
   import { AppProps as NextAppProps } from 'next/dist/shared/lib/router/router';
@@ -40,4 +9,56 @@ declare module 'next/app' {
     __N_SSP?: boolean;
     pageProps: P;
   };
+}
+
+// Add dual-side upload interfaces and enhanced card data types
+
+export interface DualSideCardData {
+  player: string;
+  set: string;
+  year: string;
+  card_number: string;
+  parallel: string;
+  manufacturer: string;
+  features: string;
+  graded: boolean;
+  grade: string;
+  grading_company: string;
+  cert_number: string;
+  confidence_score: number;
+  dual_side: boolean;
+  ocr_sources: string;
+}
+
+export interface UploadMode {
+  type: 'single' | 'dual' | 'auto';
+  description: string;
+  confidence_boost: string;
+}
+
+export interface FileUploadState {
+  id: string;
+  file: File;
+  preview: string;
+  side: 'front' | 'back';
+  paired_with?: string;
+  upload_status: 'pending' | 'uploading' | 'uploaded' | 'failed';
+  upload_progress: number;
+  gcs_url?: string;
+}
+
+export interface CardProcessingResult {
+  card_id: string;
+  card_data: DualSideCardData;
+  price_data: PriceData;
+  front_image_url: string;
+  back_image_url?: string;
+  processing_time_ms?: number;
+}
+
+export interface UploadStep {
+  step: 'select' | 'upload' | 'process' | 'complete';
+  description: string;
+  status: 'pending' | 'active' | 'completed' | 'failed';
+  error?: string;
 } 

@@ -7,6 +7,7 @@ from fastapi import Depends
 from ..models.user import User
 from ..models.collection import Collection
 from ..models.card import Card
+from ..models.price_history import CardPriceHistory
 from ..database import get_db
 
 
@@ -100,10 +101,37 @@ class AnalyticsService:
         return all_cards[:limit]
 
     def _get_value_trends(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get value trends over time (placeholder for now)"""
-        # This would track collection value changes over time
-        # For now, return empty list - will be implemented with price history tracking
-        return []
+        """Return daily total portfolio value over the last 90 days."""
+        # Get all card IDs for user
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return []
+
+        card_ids = [card.id for collection in user.collections for card in collection.cards]
+        if not card_ids:
+            return []
+
+        # Pull history within window
+        window_start = datetime.utcnow() - timedelta(days=90)
+
+        history_rows = (
+            self.db.query(CardPriceHistory)
+            .filter(CardPriceHistory.card_id.in_(card_ids))
+            .filter(CardPriceHistory.timestamp >= window_start)
+            .all()
+        )
+
+        # Bucket by date
+        daily_totals: Dict[str, float] = {}
+        for row in history_rows:
+            date_key = row.timestamp.strftime("%Y-%m-%d")
+            daily_totals[date_key] = daily_totals.get(date_key, 0) + row.price
+
+        # Return sorted list
+        trend = [
+            {"date": day, "total_value": daily_totals[day]} for day in sorted(daily_totals.keys())
+        ]
+        return trend
 
     def get_collection_analytics(self, collection_id: str, user_id: str) -> Dict[str, Any]:
         """Get detailed analytics for a specific collection"""

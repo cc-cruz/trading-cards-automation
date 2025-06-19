@@ -108,6 +108,18 @@ class CardService:
             self.db.commit()
             self.db.refresh(card)
 
+            # Persist the initial price point to history
+            if price_data and isinstance(price_data, dict):
+                estimated_value = price_data.get("estimated_value") or price_data.get("average_price")
+                if isinstance(estimated_value, (int, float)):
+                    # Use source field if provided; fallback to price_data['source']
+                    price_source = price_data.get("source", "unknown")
+                    try:
+                        self.price_service.add_price_history(card.id, float(estimated_value), price_source=price_source)
+                    except Exception as history_err:
+                        # Log but don't fail the main flow
+                        print(f"⚠️  Failed to record price history: {history_err}")
+
             # For now, store image locally (can be enhanced to upload to cloud storage later)
             # Create permanent storage path
             storage_dir = f"images/cards/{user_id}"

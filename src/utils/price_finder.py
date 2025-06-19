@@ -4,6 +4,10 @@ from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
 from tqdm import tqdm
 import re
+from diskcache import Cache
+
+# Initialize cache in local directory `.price_cache`; each entry TTL 24h.
+cache = Cache('.price_cache')
 
 def _build_search_query(card):
     """Build eBay search query from card data, prioritizing player names and handling graded cards."""
@@ -70,6 +74,12 @@ def _scrape_ebay_sold_listings(search_query, max_results=5):
     encoded_query = quote_plus(search_query)
     url = f"https://www.ebay.com/sch/i.html?_from=R40&_nkw={encoded_query}&_sacat=0&LH_Sold=1&LH_Complete=1&_sop=13"
     
+    # Caching layer first
+    cached_key = f"sold_prices::{search_query}::{max_results}"
+    cached = cache.get(cached_key)
+    if cached is not None:
+        return cached
+
     try:
         response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
@@ -94,6 +104,8 @@ def _scrape_ebay_sold_listings(search_query, max_results=5):
                     except ValueError:
                         continue
         
+        # Store to cache (24h TTL)
+        cache.set(cached_key, prices, expire=60 * 60 * 24)
         return prices
     
     except Exception as e:

@@ -1,6 +1,7 @@
 import os
 from google.cloud import storage
 from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 import json
@@ -20,18 +21,39 @@ def authenticate_google_services():
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     
     if not creds or not creds.valid:
+        # First, see if we have a service-account key (no interactive flow required)
+        if os.path.exists('credentials.json'):
+            try:
+                with open('credentials.json', 'r') as f:
+                    secret_data = json.load(f)
+                if secret_data.get('type') == 'service_account':
+                    creds = service_account.Credentials.from_service_account_file(
+                        'credentials.json', scopes=SCOPES
+                    )
+                    return creds  # service accounts don't need refresh tokens
+            except Exception as e:
+                print(f"⚠️  Failed to load service-account credentials: {e}")
+                # fall through to OAuth flow
+        
+        # OAuth user flow (interactive)
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             if not os.path.exists('credentials.json'):
                 print("Error: `credentials.json` not found.")
-                print("Please follow the setup instructions to download it from Google Cloud Console.")
+                print("Download either a service-account key or an OAuth Client ID JSON from Google Cloud Console.")
                 return None
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
+            try:
+                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+                creds = flow.run_local_server(port=0)
+            except Exception as e:
+                print(f"❌ OAuth flow failed: {e}")
+                return None
         
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        # Persist new user credentials (service accounts don't need this)
+        if isinstance(creds, Credentials):
+            with open('token.json', 'w') as token:
+                token.write(creds.to_json())
     
     return creds
 
