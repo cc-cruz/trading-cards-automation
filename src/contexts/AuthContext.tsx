@@ -6,153 +6,274 @@ interface User {
   id: string;
   email: string;
   full_name: string;
-  user_type: string;
+  created_at: string;
+}
+
+interface Subscription {
+  plan_type: 'free' | 'pro';
+  status: 'active' | 'cancelled' | 'expired';
+  current_period_end: string | null;
+  stripe_subscription_id: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
+  subscription: Subscription | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (userData: RegisterData) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (token: string) => Promise<boolean>;
+  loginWithApple: (data: { code: string; id_token: string; user?: any }) => Promise<boolean>;
+  register: (email: string, password: string, fullName: string) => Promise<boolean>;
   logout: () => void;
-  isAuthenticated: boolean;
-}
-
-interface RegisterData {
-  email: string;
-  password: string;
-  full_name: string;
-  user_type: 'collector' | 'dealer' | 'developer';
+  refreshSubscription: () => Promise<void>;
+  checkUsageLimit: (currentUploads: number) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Check for existing token on mount
+  // Load user and subscription data on app start
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Verify token and get user data
-      verifyToken(token);
+      Promise.all([
+        fetchCurrentUser(),
+        fetchSubscription()
+      ]).finally(() => setIsLoading(false));
     } else {
       setIsLoading(false);
     }
   }, []);
 
-  const verifyToken = async (token: string) => {
+  const fetchCurrentUser = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
       const response = await fetch('/api/v1/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
       } else {
-        // Token is invalid, remove it
+        // Token is invalid
         localStorage.removeItem('token');
+        setUser(null);
       }
     } catch (error) {
-      console.error('Token verification failed:', error);
+      console.error('Error fetching user:', error);
       localStorage.removeItem('token');
-    } finally {
-      setIsLoading(false);
+      setUser(null);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const fetchSubscription = async () => {
     try {
-      setIsLoading(true);
-      
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/v1/billing/subscription', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const subscriptionData = await response.json();
+        setSubscription(subscriptionData);
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+      // Set default free subscription on error
+      setSubscription({
+        plan_type: 'free',
+        status: 'active',
+        current_period_end: null,
+        stripe_subscription_id: null,
+      });
+    }
+  };
+
+  const refreshSubscription = async () => {
+    await fetchSubscription();
+  };
+
+  const checkUsageLimit = (currentUploads: number): boolean => {
+    if (!subscription || subscription.plan_type === 'pro') {
+      return true; // Pro users have unlimited uploads
+    }
+
+    if (currentUploads >= 100) {
+      toast.error('Monthly upload limit reached. Upgrade to Pro for unlimited uploads.');
+      return false;
+    }
+
+    if (currentUploads >= 80) {
+      toast(`You've used ${currentUploads}/100 uploads this month. Consider upgrading to Pro.`, {
+        icon: '⚠️',
+        duration: 4000,
+      });
+    }
+
+    return true;
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
       const response = await fetch('/api/v1/auth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: email, password }),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('token', data.access_token);
+        
+        // Fetch user data and subscription
+        await Promise.all([
+          fetchCurrentUser(),
+          fetchSubscription()
+        ]);
+        
+        toast.success('Welcome back!');
+        return true;
+      } else {
         const error = await response.json();
-        throw new Error(error.detail || 'Login failed');
+        toast.error(error.detail || 'Login failed');
+        return false;
       }
-
-      const { access_token } = await response.json();
-      localStorage.setItem('token', access_token);
-      
-      // Get user data
-      await verifyToken(access_token);
-      
-      toast('Login successful!', { icon: '✅' });
-      router.push('/dashboard');
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Invalid email or password', { icon: '❌' });
-      throw error;
-    } finally {
-      setIsLoading(false);
+      console.error('Login error:', error);
+      toast.error('Login failed. Please try again.');
+      return false;
     }
   };
 
-  const register = async (userData: RegisterData) => {
+  const loginWithGoogle = async (token: string): Promise<boolean> => {
     try {
-      setIsLoading(true);
-      
+      const response = await fetch('/api/v1/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('token', data.access_token);
+        
+        // Fetch user data and subscription
+        await Promise.all([
+          fetchCurrentUser(),
+          fetchSubscription()
+        ]);
+        
+        toast.success('Welcome!');
+        return true;
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Google sign-in failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      toast.error('Google sign-in failed. Please try again.');
+      return false;
+    }
+  };
+
+  const loginWithApple = async (data: { code: string; id_token: string; user?: any }): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/v1/auth/apple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        localStorage.setItem('token', responseData.access_token);
+        
+        // Fetch user data and subscription
+        await Promise.all([
+          fetchCurrentUser(),
+          fetchSubscription()
+        ]);
+        
+        toast.success('Welcome!');
+        return true;
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Apple sign-in failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('Apple login error:', error);
+      toast.error('Apple sign-in failed. Please try again.');
+      return false;
+    }
+  };
+
+  const register = async (email: string, password: string, fullName: string): Promise<boolean> => {
+    try {
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
+        body: JSON.stringify({
+          email,
+          password,
+          full_name: fullName,
+        }),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        toast.success('Account created! Please log in.');
+        return true;
+      } else {
         const error = await response.json();
-        throw new Error(error.detail || 'Registration failed');
+        toast.error(error.detail || 'Registration failed');
+        return false;
       }
-
-      toast('Registration successful! Please sign in to continue.', { icon: '✅' });
-      router.push('/auth/login');
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Registration failed. Please try again.', { icon: '❌' });
-      throw error;
-    } finally {
-      setIsLoading(false);
+      console.error('Registration error:', error);
+      toast.error('Registration failed. Please try again.');
+      return false;
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    toast('Logged out successfully', { icon: '✅' });
+    setSubscription(null);
     router.push('/auth/login');
+    toast.success('Logged out successfully');
   };
 
-  const value: AuthContextType = {
+  const value = {
     user,
+    subscription,
     isLoading,
     login,
+    loginWithGoogle,
+    loginWithApple,
     register,
     logout,
-    isAuthenticated: !!user,
+    refreshSubscription,
+    checkUsageLimit,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-}; 
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+} 

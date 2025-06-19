@@ -19,13 +19,18 @@ interface CollectionStats {
 }
 
 export default function Dashboard() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<CollectionStats | null>(null);
   const [recentCards, setRecentCards] = useState<Card[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (authLoading) {
+      return; // Wait for auth to load
+    }
+    
+    if (!user) {
+      logout();
       return;
     }
 
@@ -82,7 +87,7 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [isAuthenticated, logout]);
+  }, [user, authLoading, logout]);
 
   if (isLoading) {
     return (
