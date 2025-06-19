@@ -1,14 +1,14 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
 from fastapi import Depends
 
-from ..models.user import User
-from ..models.collection import Collection
-from ..models.card import Card
-from ..models.price_history import CardPriceHistory
-from ..database import get_db
+from src.models.user import User
+from src.models.collection import Collection
+from src.models.card import Card
+from src.models.price_history import CardPriceHistory
+from src.database import get_db
 
 
 class AnalyticsService:

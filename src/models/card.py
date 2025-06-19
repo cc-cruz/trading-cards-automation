@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, func, JSON
 from sqlalchemy.orm import relationship
 import uuid
 
-from ..database import Base
+from src.database import Base
 
 class Card(Base):
     __tablename__ = "cards"

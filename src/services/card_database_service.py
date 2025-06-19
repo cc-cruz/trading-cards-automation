@@ -6,7 +6,7 @@ from fastapi import Depends
 import json
 import os
 
-from ..database import Base, get_db
+from src.database import Base, get_db
 
 
 class CardDatabase(Base):
@@ -216,7 +216,7 @@ class HybridPricingService:
             }
         
         # Fall back to eBay API for unknown cards
-        from ..utils.price_finder import research_all_prices
+        from src.utils.price_finder import research_all_prices
         
         try:
             results = research_all_prices([card_data])

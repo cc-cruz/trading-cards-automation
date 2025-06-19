@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, Depends
 from datetime import datetime
 
-from ..database import get_db
-from ..models.user import User
-from ..models.subscription import Subscription
+from src.database import get_db
+from src.models.user import User
+from src.models.subscription import Subscription
 
 # Configure Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")

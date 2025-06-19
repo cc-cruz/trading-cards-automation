@@ -32,7 +32,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
                 <Link href="/" className="text-xl font-bold text-blue-600">
-                  CardDealer
+                  FlipHero
                 </Link>
               </div>
               {isClient && isAuthenticated && (
@@ -114,7 +114,7 @@ export default function Layout({ children }: LayoutProps) {
               </a>
             </div>
             <p className="mt-8 text-base text-gray-400 md:mt-0 md:order-1">
-              &copy; 2024 CardDealer. All rights reserved.
+              &copy; 2024 FlipHero. All rights reserved.
             </p>
           </div>
         </div>

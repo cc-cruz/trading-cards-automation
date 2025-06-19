@@ -1,16 +1,17 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import UploadFile, HTTPException, Depends
+import uuid
 
-from ..database import get_db
-from ..models.card import Card, CardImage
-from ..models.collection import Collection
-from ..schemas.card import CardCreate, CardUpdate
+from src.database import get_db
+from src.models.card import Card, CardImage
+from src.models.collection import Collection
+from src.schemas.card import CardCreate, CardUpdate
 from .price_service import PriceService
 from .card_database_service import HybridPricingService, get_hybrid_pricing_service
-from ..utils.card_processor import process_all_images
-from ..utils.gcs_url_generator import get_gcs_image_urls
-from ..utils.price_finder import research_all_prices
+from src.utils.card_processor import process_all_images
+from src.utils.gcs_url_generator import get_gcs_image_urls
+from src.utils.price_finder import research_all_prices
 
 class CardService:
     def __init__(self, db: Session):
@@ -21,7 +22,7 @@ class CardService:
     async def process_card_image(self, file: UploadFile, collection_id: str, user_id: str) -> dict:
         import os
         import tempfile
-        from ..utils.enhanced_card_processor import process_all_images_enhanced
+        from src.utils.enhanced_card_processor import process_all_images_enhanced
         
         # Create temporary directory if it doesn't exist
         os.makedirs("temp", exist_ok=True)
@@ -215,7 +216,7 @@ class CardService:
     def get_user_collection_stats(self, user_id: str) -> dict:
         """Get collection statistics for a user"""
         from sqlalchemy import func
-        from ..models.user import User
+        from src.models.user import User
         
         # Get user with collections using relationship
         user = self.db.query(User).filter(User.id == user_id).first()
@@ -269,7 +270,7 @@ class CardService:
     def get_recent_cards(self, user_id: str, limit: int = 6) -> List[dict]:
         """Get recently added cards for a user"""
         from sqlalchemy import desc
-        from ..models.user import User
+        from src.models.user import User
         
         # Get user with collections using relationship
         user = self.db.query(User).filter(User.id == user_id).first()

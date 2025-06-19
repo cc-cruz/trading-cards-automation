@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, DateTime, ForeignKey, Float, func
-from ..database import Base
+from src.database import Base
 import uuid
 
 class CardPriceHistory(Base):

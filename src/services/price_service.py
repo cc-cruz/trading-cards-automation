@@ -2,9 +2,9 @@ from typing import Dict, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Depends
 
-from ..database import get_db
-from ..utils.price_finder import research_all_prices
-from ..models.price_history import CardPriceHistory
+from src.database import get_db
+from src.utils.price_finder import research_all_prices
+from src.models.price_history import CardPriceHistory
 
 class PriceService:
     def __init__(self, db: Session):

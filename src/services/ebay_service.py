@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 import requests
 from requests_oauthlib import OAuth2Session
 
-from ..database import get_db
+from src.database import get_db
 
 EBAY_OAUTH_AUTHORIZE_URL = "https://auth.ebay.com/oauth2/authorize"
 EBAY_OAUTH_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"

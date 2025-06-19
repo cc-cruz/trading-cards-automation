@@ -11,9 +11,9 @@ from google.oauth2 import id_token
 import json
 import base64
 
-from ..database import get_db
-from ..models.user import User, UserType
-from ..schemas.auth import TokenData, UserCreate, OAuthUserCreate
+from src.database import get_db
+from src.models.user import User, UserType
+from src.schemas.auth import TokenData, UserCreate, OAuthUserCreate
 
 # Security configuration
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"  # This is a secure key for development
@@ -60,7 +60,7 @@ class AuthService:
         self.db.refresh(db_user)
         
         # Create default collection for new user
-        from ..models.collection import Collection
+        from src.models.collection import Collection
         default_collection = Collection(
             name="My Cards",
             description="Default collection for your trading cards",
@@ -111,7 +111,7 @@ class AuthService:
         self.db.refresh(db_user)
         
         # Create default collection for new user
-        from ..models.collection import Collection
+        from src.models.collection import Collection
         default_collection = Collection(
             name="My Cards",
             description="Default collection for your trading cards",

@@ -857,8 +857,8 @@ async def process_card_from_url(
         import requests
         import tempfile
         import os
-        from ..utils.enhanced_card_processor import process_all_images_enhanced
-        from ..utils.enhanced_card_processor import _extract_player_from_filename
+        from src.utils.enhanced_card_processor import process_all_images_enhanced
+        from src.utils.enhanced_card_processor import _extract_player_from_filename
         
         # Download image
         img_response = requests.get(image_url, timeout=10)
@@ -926,7 +926,7 @@ async def process_card_from_url(
                 }
             
             # Create card record with GCS image URL
-            from ..models.card import Card, CardImage
+            from src.models.card import Card, CardImage
             card = Card(
                 collection_id=collection_id,
                 player_name=card_data.get('player', ''),
@@ -1025,8 +1025,8 @@ async def process_dual_side_card_endpoint(
         import requests
         import tempfile
         import os
-        from ..utils.enhanced_card_processor import process_dual_side_card
-        from ..utils.enhanced_card_processor import _extract_player_from_filename
+        from src.utils.enhanced_card_processor import process_dual_side_card
+        from src.utils.enhanced_card_processor import _extract_player_from_filename
         
         # Download front image
         front_response = requests.get(front_image_url, timeout=10)
@@ -1107,7 +1107,7 @@ async def process_dual_side_card_endpoint(
                 }
             
             # Create card record
-            from ..models.card import Card, CardImage
+            from src.models.card import Card, CardImage
             card = Card(
                 collection_id=collection_id,
                 player_name=card_data.get('player', ''),

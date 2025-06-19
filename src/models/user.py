@@ -4,7 +4,7 @@ import enum
 from sqlalchemy.orm import relationship
 import uuid
 
-from ..database import Base
+from src.database import Base
 
 class UserType(enum.Enum):
     FREE = "free"

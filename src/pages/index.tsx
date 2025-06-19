@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Head from 'next/head';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
@@ -36,7 +37,14 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-white">
+    <>
+      <Head>
+        <title>FlipHero - Automate Your Trading Card Business</title>
+        <meta name="description" content="Streamline your card processing, pricing, and inventory management with FlipHero's powerful automation tools." />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <div className="bg-white">
       {/* Hero Section */}
       <div className="relative bg-gray-900">
         <div className="absolute inset-0">
@@ -305,5 +313,6 @@ export default function Home() {
         </div>
       </div>
     </div>
+    </>
   );
 } 
