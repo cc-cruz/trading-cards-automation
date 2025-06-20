@@ -41,11 +41,18 @@ export default function GoogleSignInButton({
       if (window.google && window.google.accounts && !initialized.current) {
         initialized.current = true;
         
+        // Get the client ID from environment
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com';
+        
         window.google.accounts.id.initialize({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com',
+          client_id: clientId,
           callback: window.googleSignInCallback,
           auto_select: false,
           cancel_on_tap_outside: true,
+          // Add ux_mode to redirect to avoid popup issues
+          ux_mode: 'popup',
+          // Specify allowed origins for development
+          allowed_parent_origin: ['http://localhost:3000', 'http://localhost:3003']
         });
 
         if (buttonRef.current) {
@@ -68,6 +75,10 @@ export default function GoogleSignInButton({
       script.async = true;
       script.defer = true;
       script.onload = initializeGoogleSignIn;
+      script.onerror = () => {
+        console.error('Failed to load Google Identity Services');
+        onError(new Error('Failed to load Google Sign-In'));
+      };
       document.head.appendChild(script);
     } else {
       initializeGoogleSignIn();

@@ -90,7 +90,16 @@ export default function BulkScan() {
               : c
           ));
         } else {
-          throw new Error('Upload failed');
+          // Try to get error details from response
+          try {
+            const errorData = await response.json();
+            const errorMessage = typeof errorData.detail === 'string' 
+              ? errorData.detail 
+              : 'Upload failed';
+            throw new Error(errorMessage);
+          } catch {
+            throw new Error('Upload failed');
+          }
         }
       } catch (error) {
         setCards(prev => prev.map(c => 
@@ -99,7 +108,7 @@ export default function BulkScan() {
                 ...c, 
                 status: 'error', 
                 progress: 0,
-                error: 'Failed to process card'
+                error: error instanceof Error ? error.message : 'Failed to process card'
               }
             : c
         ));
@@ -257,7 +266,9 @@ export default function BulkScan() {
                     )}
                     
                     {card.status === 'error' && (
-                      <p className="text-sm text-red-600">{card.error}</p>
+                      <p className="text-sm text-red-600">
+                        {typeof card.error === 'string' ? card.error : 'Failed to process card'}
+                      </p>
                     )}
                     
                     <button

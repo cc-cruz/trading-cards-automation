@@ -136,9 +136,13 @@ export default function Upload() {
     }
   };
 
-  const handleError = (error: string) => {
+  const handleError = (error: string | Error | any) => {
     console.error('Upload error:', error);
-    toast.error(error);
+    // Ensure we always pass a string to toast.error
+    const errorMessage = typeof error === 'string' 
+      ? error 
+      : error?.message || 'An unknown error occurred';
+    toast.error(errorMessage);
   };
 
   // Check usage limits

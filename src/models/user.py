@@ -10,6 +10,8 @@ class UserType(enum.Enum):
     FREE = "free"
     PREMIUM = "premium"
     ADMIN = "admin"
+    COLLECTOR = "collector"
+    DEALER = "dealer"
 
 class User(Base):
     __tablename__ = "users"
@@ -19,7 +21,6 @@ class User(Base):
     password_hash = Column(String, nullable=True)  # Made nullable for OAuth users
     full_name = Column(String)
     user_type = Column(Enum(UserType), default=UserType.FREE)
-    is_active = Column(Boolean, default=True)
     
     # OAuth fields
     google_id = Column(String, unique=True, nullable=True, index=True)

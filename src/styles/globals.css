@@ -20,4 +20,32 @@
   .input-primary {
     @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm;
   }
+
+  /* Hero Video Optimizations */
+  .hero-video {
+    min-height: 500px;
+  }
+
+  @media (max-width: 768px) {
+    .hero-video {
+      min-height: 400px;
+    }
+  }
+
+  /* Ensure video doesn't cause layout shift */
+  .hero-video video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 100%;
+    min-height: 100%;
+  }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-video video {
+      animation: none;
+    }
+  }
 } 

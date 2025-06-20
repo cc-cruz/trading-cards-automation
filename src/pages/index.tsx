@@ -46,13 +46,34 @@ export default function Home() {
       </Head>
       <div className="bg-white">
       {/* Hero Section */}
-      <div className="relative bg-gray-900">
+      <div className="relative bg-gray-900 hero-video">
         <div className="absolute inset-0">
-          <img
+          <video
             className="w-full h-full object-cover"
-            src="/images/hero-bg.jpg"
-            alt="Trading cards background"
-          />
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            poster="/images/hero-bg.jpg"
+            onError={(e) => {
+              // Fallback to image if video fails to load
+              const video = e.currentTarget;
+              const fallbackImg = video.querySelector('img') as HTMLImageElement;
+              if (fallbackImg) {
+                video.style.display = 'none';
+                fallbackImg.style.display = 'block';
+              }
+            }}
+          >
+            <source src="/images/fliphero-herobg-video.mp4" type="video/mp4" />
+            <img
+              className="w-full h-full object-cover"
+              src="/images/hero-bg.jpg"
+              alt="Trading cards background - FlipHero automation platform"
+              style={{ display: 'none' }}
+            />
+          </video>
           <div className="absolute inset-0 bg-gray-900 opacity-75"></div>
         </div>
         <div className="relative max-w-7xl mx-auto py-24 px-4 sm:py-32 sm:px-6 lg:px-8">
@@ -254,7 +275,9 @@ export default function Home() {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   />
                   {errors.name && (
-                    <p className="mt-2 text-sm text-red-600">{errors.name.message}</p>
+                    <p className="mt-2 text-sm text-red-600">
+                      {typeof errors.name.message === 'string' ? errors.name.message : 'Name is required'}
+                    </p>
                   )}
                 </div>
               </div>
@@ -277,7 +300,9 @@ export default function Home() {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   />
                   {errors.email && (
-                    <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
+                    <p className="mt-2 text-sm text-red-600">
+                      {typeof errors.email.message === 'string' ? errors.email.message : 'Email is required'}
+                    </p>
                   )}
                 </div>
               </div>
@@ -294,7 +319,9 @@ export default function Home() {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   />
                   {errors.message && (
-                    <p className="mt-2 text-sm text-red-600">{errors.message.message}</p>
+                    <p className="mt-2 text-sm text-red-600">
+                      {typeof errors.message.message === 'string' ? errors.message.message : 'Message is required'}
+                    </p>
                   )}
                 </div>
               </div>
