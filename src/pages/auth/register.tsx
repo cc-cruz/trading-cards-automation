@@ -20,12 +20,12 @@ export default function Register() {
     setError('');
 
     try {
-      const success = await register(email, password, fullName);
-      if (success) {
-        router.push('/auth/login');
-      }
+      await register(email, password, fullName);
+      // If we get here, registration was successful
+      router.push('/auth/login');
     } catch (error: any) {
-      setError(error.message || 'Registration failed');
+      // Registration failed, error already shown via toast, but also show in UI
+      setError(error?.message || 'Registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -36,12 +36,13 @@ export default function Register() {
     setError('');
     
     try {
-      const success = await loginWithGoogle(credential);
-      if (success) {
-        router.push('/dashboard');
-      }
+      await loginWithGoogle(credential);
+      // If we get here, login was successful
+      router.push('/dashboard');
     } catch (error: any) {
-      setError(error.message || 'Google sign-up failed');
+      console.error('Google OAuth error:', error);
+      // Error already shown via toast, but also show in UI
+      setError(error?.message || 'Google sign-up failed');
     } finally {
       setIsLoading(false);
     }
@@ -52,12 +53,13 @@ export default function Register() {
     setError('');
     
     try {
-      const success = await loginWithApple(data);
-      if (success) {
-        router.push('/dashboard');
-      }
+      await loginWithApple(data);
+      // If we get here, login was successful
+      router.push('/dashboard');
     } catch (error: any) {
-      setError(error.message || 'Apple sign-up failed');
+      console.error('Apple OAuth error:', error);
+      // Error already shown via toast, but also show in UI
+      setError(error?.message || 'Apple sign-up failed');
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +67,11 @@ export default function Register() {
 
   const handleOAuthError = (error: any) => {
     console.error('OAuth error:', error);
-    setError('Social sign-up failed. Please try again.');
+    // Ensure we always set a string error message
+    const errorMessage = typeof error === 'string' 
+      ? error 
+      : error?.message || 'Social sign-up failed. Please try again.';
+    setError(errorMessage);
   };
 
   return (
@@ -85,7 +91,9 @@ export default function Register() {
 
         {error && (
           <div className="rounded-md bg-red-50 p-4">
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600">
+              {typeof error === 'string' ? error : 'An error occurred. Please try again.'}
+            </p>
           </div>
         )}
 

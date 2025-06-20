@@ -145,13 +145,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       } else {
         const error = await response.json();
-        toast.error(error.detail || 'Login failed');
-        return false;
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : Array.isArray(error.detail) 
+            ? error.detail.map((e: any) => e.msg || e).join(', ')
+            : 'Login failed';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Login failed. Please try again.');
-      return false;
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -177,13 +183,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       } else {
         const error = await response.json();
-        toast.error(error.detail || 'Google sign-in failed');
-        return false;
+        // Properly handle FastAPI error format
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : Array.isArray(error.detail) 
+            ? error.detail.map((e: any) => e.msg || e).join(', ')
+            : 'Google sign-in failed';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Google login error:', error);
-      toast.error('Google sign-in failed. Please try again.');
-      return false;
+      const errorMessage = error instanceof Error ? error.message : 'Google sign-in failed. Please try again.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -209,13 +222,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       } else {
         const error = await response.json();
-        toast.error(error.detail || 'Apple sign-in failed');
-        return false;
+        // Properly handle FastAPI error format
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : Array.isArray(error.detail) 
+            ? error.detail.map((e: any) => e.msg || e).join(', ')
+            : 'Apple sign-in failed';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Apple login error:', error);
-      toast.error('Apple sign-in failed. Please try again.');
-      return false;
+      const errorMessage = error instanceof Error ? error.message : 'Apple sign-in failed. Please try again.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -236,13 +256,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       } else {
         const error = await response.json();
-        toast.error(error.detail || 'Registration failed');
-        return false;
+        // Properly handle FastAPI error format
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : Array.isArray(error.detail) 
+            ? error.detail.map((e: any) => e.msg || e).join(', ')
+            : 'Registration failed';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error('Registration failed. Please try again.');
-      return false;
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 

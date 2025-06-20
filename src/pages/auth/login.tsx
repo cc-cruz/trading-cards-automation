@@ -19,14 +19,13 @@ export default function Login() {
     setError('');
 
     try {
-      const success = await login(email, password);
-      if (success) {
-        // Redirect to dashboard or intended page
-        const redirectTo = router.query.redirect as string || '/dashboard';
-        router.push(redirectTo);
-      }
+      await login(email, password);
+      // If we get here, login was successful
+      const redirectTo = router.query.redirect as string || '/dashboard';
+      router.push(redirectTo);
     } catch (error: any) {
-      setError(error.message || 'Login failed');
+      // Login failed, error already shown via toast, but also show in UI
+      setError(error?.message || 'Login failed');
     } finally {
       setIsLoading(false);
     }
@@ -37,13 +36,14 @@ export default function Login() {
     setError('');
     
     try {
-      const success = await loginWithGoogle(credential);
-      if (success) {
-        const redirectTo = router.query.redirect as string || '/dashboard';
-        router.push(redirectTo);
-      }
+      await loginWithGoogle(credential);
+      // If we get here, login was successful
+      const redirectTo = router.query.redirect as string || '/dashboard';
+      router.push(redirectTo);
     } catch (error: any) {
-      setError(error.message || 'Google sign-in failed');
+      console.error('Google OAuth error:', error);
+      // Error already shown via toast, but also show in UI
+      setError(error?.message || 'Google sign-in failed');
     } finally {
       setIsLoading(false);
     }
@@ -54,13 +54,14 @@ export default function Login() {
     setError('');
     
     try {
-      const success = await loginWithApple(data);
-      if (success) {
-        const redirectTo = router.query.redirect as string || '/dashboard';
-        router.push(redirectTo);
-      }
+      await loginWithApple(data);
+      // If we get here, login was successful
+      const redirectTo = router.query.redirect as string || '/dashboard';
+      router.push(redirectTo);
     } catch (error: any) {
-      setError(error.message || 'Apple sign-in failed');
+      console.error('Apple OAuth error:', error);
+      // Error already shown via toast, but also show in UI
+      setError(error?.message || 'Apple sign-in failed');
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +69,11 @@ export default function Login() {
 
   const handleOAuthError = (error: any) => {
     console.error('OAuth error:', error);
-    setError('Social sign-in failed. Please try again.');
+    // Ensure we always set a string error message
+    const errorMessage = typeof error === 'string' 
+      ? error 
+      : error?.message || 'Social sign-in failed. Please try again.';
+    setError(errorMessage);
   };
 
   return (
@@ -88,7 +93,9 @@ export default function Login() {
 
         {error && (
           <div className="rounded-md bg-red-50 p-4">
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600">
+              {typeof error === 'string' ? error : 'An error occurred. Please try again.'}
+            </p>
           </div>
         )}
 
