@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from .database import get_db, engine, Base
 from .services.auth_service import AuthService, get_auth_service, oauth2_scheme
@@ -43,6 +43,17 @@ app.add_middleware(
 
 # Mount static files for serving uploaded images
 app.mount("/images", StaticFiles(directory="images"), name="images")
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring and deployment"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "FlipHero API",
+        "version": "1.0.0"
+    }
 
 # Auth routes
 @app.post("/api/v1/auth/token", response_model=Token)
