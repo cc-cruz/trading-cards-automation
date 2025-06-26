@@ -194,25 +194,28 @@ async def get_recent_cards(
     recent_cards = card_service.get_recent_cards(current_user.id, limit)
     return recent_cards
 
-@app.post("/api/v1/cards/upload")
-async def upload_card_image(
-    file: UploadFile = File(...),
-    collection_id: str = Form(...),
-    current_user: User = Depends(get_auth_service().get_current_user),
-    card_service: CardService = Depends(get_card_service)
-):
-    """Upload and process a card image with OCR and price research"""
-    try:
-        # Process the uploaded image
-        result = await card_service.process_card_image(file, collection_id, current_user.id)
-        return {
-            "status": "success",
-            "card_data": result["card_data"],
-            "price_data": result["price_data"],
-            "card_id": result["card_id"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.post("/api/v1/cards/upload")
+# async def upload_card_image(
+#     file: UploadFile = File(...),
+#     collection_id: str = Form(...),
+#     current_user: User = Depends(get_auth_service().get_current_user),
+#     card_service: CardService = Depends(get_card_service)
+# ):
+#     """
+#     DEPRECATED & DISABLED: This endpoint writes to the local filesystem and will fail in a stateless environment.
+#     Use the signed URL upload flow (/api/v1/uploads/signed-url) instead.
+#     """
+#     try:
+#         # Process the uploaded image
+#         result = await card_service.process_card_image(file, collection_id, current_user.id)
+#         return {
+#             "status": "success",
+#             "card_data": result["card_data"],
+#             "price_data": result["price_data"],
+#             "card_id": result["card_id"]
+#         }
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/cards", response_model=CardSchema)
 async def create_card(

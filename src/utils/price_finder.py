@@ -4,10 +4,12 @@ from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
 from tqdm import tqdm
 import re
-from diskcache import Cache
 
-# Initialize cache in local directory `.price_cache`; each entry TTL 24h.
-cache = Cache('.price_cache')
+# In-memory cache (temporary solution for deployment)
+# Using a simple dictionary for in-memory caching.
+# This is not persistent and will be cleared on app restart.
+# TODO: Replace with a proper Redis cache for production.
+cache = {}
 
 def _build_search_query(card):
     """Build eBay search query from card data, prioritizing player names and handling graded cards."""
@@ -76,9 +78,11 @@ def _scrape_ebay_sold_listings(search_query, max_results=5):
     
     # Caching layer first
     cached_key = f"sold_prices::{search_query}::{max_results}"
-    cached = cache.get(cached_key)
-    if cached is not None:
-        return cached
+    if cached_key in cache:
+        # Check for expiration (TTL of 24 hours)
+        timestamp, cached_data = cache[cached_key]
+        if time.time() - timestamp < (60 * 60 * 24):
+            return cached_data
 
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -104,8 +108,8 @@ def _scrape_ebay_sold_listings(search_query, max_results=5):
                     except ValueError:
                         continue
         
-        # Store to cache (24h TTL)
-        cache.set(cached_key, prices, expire=60 * 60 * 24)
+        # Store to cache with a timestamp
+        cache[cached_key] = (time.time(), prices)
         return prices
     
     except Exception as e:
