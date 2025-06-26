@@ -1,0 +1,55 @@
+# Git and version control
+.git
+.gitignore
+
+# Dependencies (will be installed in container)
+node_modules
+.venv
+__pycache__
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+logs/*
+temp-files/*
+*.tmp
+
+# Build artifacts
+.next
+dist
+build
+out
+
+# Environment files (use secrets management)
+.env
+.env.local
+.env.production
+
+# Testing
+coverage
+.pytest_cache
+.coverage
+
+# Backups and archives
+*.backup
+backups/*
+archive/*
+
+# Large data files (mount as volumes instead)
+images/*
+test_images/*
+*.db-shm
+*.db-wal
+
+# Documentation (not needed in container)
+*.md
+docs/* 
