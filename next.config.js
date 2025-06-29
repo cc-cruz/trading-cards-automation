@@ -8,7 +8,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8001/api/:path*',
+        destination: `http://localhost:${process.env.PORT || 8001}/api/:path*`,
       },
     ];
   },
@@ -21,4 +21,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;
