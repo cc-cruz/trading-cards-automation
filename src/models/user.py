@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, Text
+from sqlalchemy import Column, String, DateTime, Boolean, Enum, Text
 from sqlalchemy.sql import func
 import enum
 from sqlalchemy.orm import relationship
@@ -16,7 +16,7 @@ class UserType(enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=True)  # Made nullable for OAuth users
     full_name = Column(String)
@@ -42,4 +42,4 @@ class User(Base):
 
     # Relationships - using string references to avoid circular imports
     collections = relationship("Collection", back_populates="user", lazy="dynamic")
-    subscription = relationship("Subscription", back_populates="user", uselist=False) 
+    subscription = relationship("Subscription", back_populates="user", uselist=False)

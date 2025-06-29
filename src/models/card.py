@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, func, JSON
+from sqlalchemy import Column, String, DateTime, ForeignKey, func, JSON, Boolean
 from sqlalchemy.orm import relationship
 import uuid
 
@@ -16,7 +16,7 @@ class Card(Base):
     parallel = Column(String)
     manufacturer = Column(String)
     features = Column(JSON)
-    graded = Column(String)
+    graded = Column(Boolean)
     grade = Column(String)
     grading_company = Column(String)
     cert_number = Column(String)
@@ -41,4 +41,4 @@ class CardImage(Base):
     deleted_at = Column(DateTime(timezone=True))
 
     # Relationships - using string references to avoid circular imports
-    card = relationship("Card", back_populates="images") 
+    card = relationship("Card", back_populates="images")
